@@ -35,10 +35,25 @@ function getAudioSource(audioContext) {
 }
 
 function getGeneratedSource(audioContext) {
-    var a = document.getElementById('a');
-    a.crossOrigin = "anonymous";
+    var oscillator = audioContext.createOscillator();
 
-    return audioContext.createMediaElementSource(a);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // value in hertz
+    oscillator.frequency.setValueAtTime(440 * 2, audioContext.currentTime + 2);
+    oscillator.frequency.setValueAtTime(440 * 4, audioContext.currentTime + 4);
+    oscillator.frequency.setValueAtTime(440 * 8, audioContext.currentTime + 6);
+    oscillator.frequency.setValueAtTime(440 * 16, audioContext.currentTime + 8);
+    oscillator.frequency.setValueAtTime(440 * 32, audioContext.currentTime + 10);
+
+    var gain = audioContext.createGain();
+    gain.gain.value = 0.5;
+
+    return oscillator;
+}
+
+function getMicSource(audioContext) {
+    return navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => audioContext.createMediaStreamSource(stream));
 }
 
 function drawEqualizer(canvasContext, width, height, fqData) {
@@ -60,10 +75,21 @@ window.onload = function () {
     var an = getAnalyser(audioContext);
     var fqData = new Uint8Array(an.frequencyBinCount);
 
-    var src = getAudioSource(audioContext);
-
+    /*
+    // sync
+    var src = getGeneratedSource(audioContext);
     src.connect(an);
     src.connect(audioContext.destination);
+*/
+    var gen = getGeneratedSource(audioContext);
+    gen.connect(audioContext.destination);
+
+    // async
+    getMicSource(audioContext).then(src => {
+        src.connect(an);
+        gen.start();
+        // src.connect(audioContext.destination);
+    });
 
     function renderFrame() {
         requestAnimationFrame(renderFrame);
@@ -71,5 +97,6 @@ window.onload = function () {
         drawEqualizer(canvasContext, c.width, c.height, fqData);
     }
 
+    // src.start();
     renderFrame();
 };
